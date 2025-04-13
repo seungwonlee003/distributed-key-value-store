@@ -1,0 +1,27 @@
+package com.example.distributed_key_value_store.config;
+
+
+import com.example.distributed_key_value_store.node.RaftNodeState;
+import com.example.distributed_key_value_store.node.RaftNodeStateManager;
+import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
+
+@RequiredArgsConstructor
+public class RaftInitializer {
+    private final RaftNodeState raftNodeState;
+    private final RaftNodeStateManager raftNodeStateManager;
+    private final RaftConfig raftConfig;
+
+    @PostConstruct
+    public void init() {
+        nodeState.setNodeId(raftConfig.getNodeId());
+
+        if(raftConfig.getPeerUrls() != null) {
+            raftNodeState.setPeerUrls(raftConfig.getPeerUrls());
+        } else {
+            throw new IllegalArgumentException("PeerUrls is required");
+        }
+
+        raftNodeStateManager.becomeFollower(0);
+    }
+}
