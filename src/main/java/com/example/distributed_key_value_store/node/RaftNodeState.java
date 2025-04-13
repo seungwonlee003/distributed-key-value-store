@@ -17,18 +17,21 @@ public abstract class RaftNodeState {
     private Role currentRole;
     private Integer currentLeader;
 
-    @PostConstruct
-    abstract void init();
+    public abstract void init();
 
-    abstract void setCurrentTerm(int term);
+    public abstract void setCurrentTerm(int term);
 
-    abstract void incrementTerm();
+    public abstract void incrementTerm();
 
-    abstract void setVotedFor(Integer votedFor);
+    public abstract void setVotedFor(Integer votedFor);
 
-    abstract void setLastApplied(int lastApplied);
+    public abstract void setLastApplied(int lastApplied);
 
-    abstract void setCurrentLeader(Integer currentLeader);
+    public abstract void setCurrentLeader(Integer currentLeader);
+
+    public abstract void setCurrentRole(Role currentRole);
+
+    public abstract void setNodeId(int nodeId);
 
     public String getCurrentLeaderUrl(){
         return raftConfig.getPeerUrls().get(currentLeader);

@@ -2,8 +2,8 @@ package com.example.distributed_key_value_store.controller;
 
 import com.example.distributed_key_value_store.dto.*;
 import com.example.distributed_key_value_store.election.ElectionManager;
-import com.example.distributed_key_value_store.replication.ClientRequestHandler;
-import com.example.distributed_key_value_store.service.ReadHandler;
+import com.example.distributed_key_value_store.replication.RaftReplicationManager;
+import com.example.distributed_key_value_store.service.LeadershipManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -16,8 +16,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/raft/rpc")
 public class RaftRpcController {
     private final ElectionManager electionManager;
-    private final ClientRequestHandler clientRequestHandler;
-    private final ReadHandler readHandler;
+    private final RaftReplicationManager raftReplicationManager;
+    private final LeadershipManager leadershipManager;
 
     @PostMapping("/requestVote")
     public ResponseEntity<VoteResponseDto> vote(@RequestBody VoteRequestDto requestVoteDTO) {
@@ -26,11 +26,11 @@ public class RaftRpcController {
 
     @PostMapping("/appendEntries")
     public ResponseEntity<AppendEntryResponseDto> appendEntries(@RequestBody AppendEntryRequestDto dto) {
-        return ResponseEntity.ok(clientRequestHandler.handleAppendEntries(dto));
+        return ResponseEntity.ok(raftReplicationManager.handleAppendEntries(dto));
     }
 
     @PostMapping("/confirmLeadership")
-    public ResponseEntity<HeartbeatResponseDto> confirmLeadership(){
-        return ResponseEntity.ok(readHandler.handleConfirmLeadership());
+    public ResponseEntity<HeartbeatResponseDto> confirmLeadership(@RequestBody ConfirmLeadershipRequestDto dto) {
+        return ResponseEntity.ok(leadershipManager.handleConfirmLeadership(dto));
     }
 }

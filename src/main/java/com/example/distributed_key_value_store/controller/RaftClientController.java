@@ -4,7 +4,7 @@ import com.example.distributed_key_value_store.dto.WriteRequestDto;
 import com.example.distributed_key_value_store.log.LogEntry;
 import com.example.distributed_key_value_store.node.RaftNodeState;
 import com.example.distributed_key_value_store.node.Role;
-import com.example.distributed_key_value_store.replication.RaftReplicationManager;
+import com.example.distributed_key_value_store.replication.ClientRequestHandler;
 import com.example.distributed_key_value_store.service.ReadHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 public class RaftClientController {
     private final ReadHandler readHandler;
     private final RaftNodeState raftNodeState;
+    private final ClientRequestHandler clientRequestHandler;
 
     @GetMapping("/get")
     public ResponseEntity<String> get(@RequestParam String key) {
@@ -52,7 +53,7 @@ public class RaftClientController {
                 request.getSequenceNumber()
         );
 
-        boolean committed = readHandler.handleClientRequest(entry);
+        boolean committed = clientRequestHandler.handle(entry);
         if (committed) {
             return ResponseEntity.ok(label + " committed");
         } else {

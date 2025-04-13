@@ -8,6 +8,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ConfirmLeadershipRequestDto {
-    private String nodeId;
+    private int nodeId;
     private int term;
 }

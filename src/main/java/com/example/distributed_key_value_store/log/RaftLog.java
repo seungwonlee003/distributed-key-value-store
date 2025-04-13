@@ -23,5 +23,5 @@ public interface RaftLog {
 
     LogEntry getEntryAt(int index);
 
-    List<LogEntry> getEntriesFrom(int startIndex, int endIndex);
+    List<LogEntry> getEntriesFrom(int startIndex);
 }

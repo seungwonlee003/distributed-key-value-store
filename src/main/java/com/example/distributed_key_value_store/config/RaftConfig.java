@@ -6,7 +6,6 @@ import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
-import java.util.Collection;
 import java.util.Map;
 
 @Getter
@@ -22,5 +21,4 @@ public class RaftConfig {
     private int heartbeatIntervalMillis;       // 1000
     private int electionRpcTimeoutMillis;      // 2000
     private int clientRequestTimeoutMillis;    // 2000
-
 }

@@ -14,14 +14,7 @@ public class RaftInitializer {
 
     @PostConstruct
     public void init() {
-        nodeState.setNodeId(raftConfig.getNodeId());
-
-        if(raftConfig.getPeerUrls() != null) {
-            raftNodeState.setPeerUrls(raftConfig.getPeerUrls());
-        } else {
-            throw new IllegalArgumentException("PeerUrls is required");
-        }
-
+        raftNodeState.setNodeId(raftConfig.getNodeId());
         raftNodeStateManager.becomeFollower(0);
     }
 }

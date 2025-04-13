@@ -1,4 +1,7 @@
 package com.example.distributed_key_value_store.storage;
 
-public class StateMachine {
+import com.example.distributed_key_value_store.log.LogEntry;
+
+public interface StateMachine {
+    void apply(LogEntry entry);
 }
