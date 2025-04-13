@@ -60,7 +60,7 @@ public class LeadershipManager {
         }
 
         try {
-            latch.await(raftConfig.getElectionRpcTimeoutMillis() * 2, TimeUnit.MILLISECONDS);
+            latch.await(raftConfig.getElectionRpcTimeoutMillis() * 2L, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Interrupted while confirming leadership.");
@@ -76,7 +76,7 @@ public class LeadershipManager {
             String url = peerUrl + "/raft/confirmLeadership";
             ConfirmLeadershipRequestDto dto = new ConfirmLeadershipRequestDto(leaderId, term);
             ResponseEntity<HeartbeatResponseDto> response = restTemplate.postForEntity(url, dto, HeartbeatResponseDto.class);
-            HeartbeatResponseDto body = response.getBody() != null ? response.getBody() : new HeartbeatResponseDto(term, false);
+            HeartbeatResponseDto body = response.getBody() != null ? response.getBody() : new HeartbeatResponseDto(false, term);
             if (body.getTerm() > raftNodeState.getCurrentTerm()) {
                 raftNodeStateManager.becomeFollower(body.getTerm());
             }

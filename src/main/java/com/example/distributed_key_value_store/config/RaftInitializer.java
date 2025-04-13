@@ -5,7 +5,9 @@ import com.example.distributed_key_value_store.node.RaftNodeState;
 import com.example.distributed_key_value_store.node.RaftNodeStateManager;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 
+@Component
 @RequiredArgsConstructor
 public class RaftInitializer {
     private final RaftNodeState raftNodeState;
