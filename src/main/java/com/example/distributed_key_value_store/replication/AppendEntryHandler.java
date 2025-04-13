@@ -33,7 +33,6 @@ public class AppendEntryHandler {
             term = leaderTerm;
         }
 
-        // set currentLeader
         nodeState.setCurrentLeader(dto.getLeaderId());
 
         if (dto.getPrevLogIndex() > 0 &&
@@ -53,7 +52,7 @@ public class AppendEntryHandler {
                     break;
                 }
             }
-            if (!log.containsEntryAt(index)) { // No conflicts found, append all
+            if (!log.containsEntryAt(index)) {
                 log.appendAll(entries);
             }
         }

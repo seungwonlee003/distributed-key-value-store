@@ -1,7 +1,6 @@
 package com.example.distributed_key_value_store.node;
 
 import com.example.distributed_key_value_store.config.RaftConfig;
-import jakarta.annotation.PostConstruct;
 import lombok.Getter;
 import org.springframework.stereotype.Component;
 

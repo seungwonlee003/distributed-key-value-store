@@ -34,10 +34,10 @@ public class LogReplicator {
     private final Map<String, Integer> nextIndex = new ConcurrentHashMap<>();
     private final Map<String, Integer> matchIndex = new ConcurrentHashMap<>();
     private final Map<String, Boolean> pendingReplication = new ConcurrentHashMap<>();
-    private final ExecutorService applyExecutor = Executors.newSingleThreadExecutor();
 
     private RestTemplate restTemplate;
     private ScheduledExecutorService executor;
+
     @PostConstruct
     private void initExecutor() {
         this.executor = Executors.newScheduledThreadPool(config.getPeerUrls().size());

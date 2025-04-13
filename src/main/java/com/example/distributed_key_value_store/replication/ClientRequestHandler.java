@@ -37,7 +37,6 @@ public class ClientRequestHandler {
                 return false;
             }
         }
-
         return false;
     }
 }

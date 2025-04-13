@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/raft/client")
 public class RaftClientController {
     private final ReadHandler readHandler;
-    private final RaftNodeState raftNodeState;
+    private final RaftNodeState nodeState;
     private final ClientRequestHandler clientRequestHandler;
 
     @GetMapping("/get")
@@ -29,6 +29,7 @@ public class RaftClientController {
     public ResponseEntity<String> insert(@RequestBody WriteRequestDto request) {
         return handleWrite(request, LogEntry.Operation.INSERT, "Insert");
     }
+
     @PostMapping("/update")
     public ResponseEntity<String> update(@RequestBody WriteRequestDto request) {
         return handleWrite(request, LogEntry.Operation.UPDATE, "Update");
@@ -40,12 +41,12 @@ public class RaftClientController {
     }
 
     private ResponseEntity<String> handleWrite(WriteRequestDto request, LogEntry.Operation op, String label) {
-        if (raftNodeState.getCurrentRole() != Role.LEADER) {
+        if (nodeState.getCurrentRole() != Role.LEADER) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Not the leader");
         }
 
         LogEntry entry = new LogEntry(
-                raftNodeState.getCurrentTerm(),
+                nodeState.getCurrentTerm(),
                 request.getKey(),
                 request.getValue(),
                 op,

@@ -41,7 +41,6 @@ public class InMemoryRaftLog implements RaftLog{
     @Override
     public synchronized void deleteFrom(int fromIndex) {
         if (fromIndex >= 1 && fromIndex < logEntries.size()) {
-            // Remove all entries from the specified index onward.
             logEntries.subList(fromIndex, logEntries.size()).clear();
         }
     }
