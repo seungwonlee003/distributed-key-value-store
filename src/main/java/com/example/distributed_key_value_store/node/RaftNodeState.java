@@ -2,41 +2,34 @@ package com.example.distributed_key_value_store.node;
 
 import com.example.distributed_key_value_store.config.RaftConfig;
 import lombok.Getter;
-import org.springframework.stereotype.Component;
+import lombok.Setter;
 
 @Getter
-@Component
-public abstract class RaftNodeState {
-    private RaftConfig raftConfig;
-    private int nodeId;
+@Setter
+public class RaftNodeState {
+    private final RaftConfig raftConfig;
+    private final int nodeId;
     private int currentTerm;
     private Integer votedFor;
     private int lastApplied;
-
     private Role currentRole;
     private Integer currentLeader;
 
-    public abstract void init();
-
-    public abstract void setCurrentTerm(int term);
-
-    public abstract void incrementTerm();
-
-    public abstract void setVotedFor(Integer votedFor);
-
-    public abstract void setLastApplied(int lastApplied);
-
-    public abstract void setCurrentLeader(Integer currentLeader);
-
-    public abstract void setCurrentRole(Role currentRole);
-
-    public abstract void setNodeId(int nodeId);
-
-    public String getCurrentLeaderUrl(){
-        return raftConfig.getPeerUrls().get(currentLeader);
+    public RaftNodeState(RaftConfig raftConfig, int nodeId) {
+        this.raftConfig = raftConfig;
+        this.nodeId = nodeId;
+        this.currentTerm = 0;
+        this.votedFor = null;
+        this.lastApplied = 0;
+        this.currentRole = Role.FOLLOWER;
+        this.currentLeader = null;
     }
 
-    public boolean isLeader(){
-        return currentRole.equals(Role.LEADER);
+    public String getCurrentLeaderUrl() {
+        return currentLeader != null ? raftConfig.getPeerUrls().get(currentLeader) : null;
+    }
+
+    public boolean isLeader() {
+        return currentRole == Role.LEADER;
     }
 }
