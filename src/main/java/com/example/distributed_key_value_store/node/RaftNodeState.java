@@ -6,7 +6,7 @@ import lombok.Setter;
 
 @Getter
 @Setter
-public class RaftNodeState {
+public abstract class RaftNodeState {
     private final RaftConfig raftConfig;
     private final int nodeId;
     private int currentTerm;
@@ -25,8 +25,23 @@ public class RaftNodeState {
         this.currentLeader = null;
     }
 
+    public void init() {
+        setCurrentTerm(0);
+        setVotedFor(null);
+        setLastApplied(0);
+        setCurrentRole(Role.FOLLOWER);
+        setCurrentLeader(null);
+    }
+
+    public void incrementTerm() {
+        this.currentTerm++;
+    }
+
     public String getCurrentLeaderUrl() {
-        return currentLeader != null ? raftConfig.getPeerUrls().get(currentLeader) : null;
+        if (currentLeader != null) {
+            return raftConfig.getPeerUrls().get(currentLeader);
+        }
+        return null;
     }
 
     public boolean isLeader() {
