@@ -24,6 +24,7 @@ public class RaftRpcController {
         return ResponseEntity.ok(electionManager.handleVoteRequest(requestVoteDTO));
     }
 
+    //test
     @PostMapping("/appendEntries")
     public ResponseEntity<AppendEntryResponseDto> appendEntries(@RequestBody AppendEntryRequestDto dto) {
         return ResponseEntity.ok(raftReplicationManager.handleAppendEntries(dto));

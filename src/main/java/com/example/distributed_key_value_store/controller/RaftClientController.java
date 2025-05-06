@@ -41,6 +41,7 @@ public class RaftClientController {
         return ResponseEntity.ok(logRecord.toString());
     }
 
+
     @GetMapping("/get")
     public ResponseEntity<String> get(@RequestParam String key) {
         String val = readHandler.handleRead(key);
