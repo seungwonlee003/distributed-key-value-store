@@ -7,6 +7,7 @@ import com.example.distributed_key_value_store.log.RaftLog;
 import com.example.distributed_key_value_store.node.RaftNodeState;
 import com.example.distributed_key_value_store.node.RaftNodeStateManager;
 import com.example.distributed_key_value_store.node.Role;
+import com.example.distributed_key_value_store.util.LockManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -28,46 +29,53 @@ public class ElectionManager {
     private final RaftNodeState nodeState;
     private final RaftNodeStateManager stateManager;
     private final RestTemplate restTemplate;
-
+    private final LockManager lockManager;
     /**
      * Handles a vote request from a candidate node per Raft algorithm.
      * Grants vote if conditions in Raft §5.1, §5.2, and §5.4 are met.
      */
-    public synchronized VoteResponseDto handleVoteRequest(VoteRequestDto request) {
-        int currentTerm = nodeState.getCurrentTerm();
-        int requestTerm = request.getTerm();
-        int candidateId = request.getCandidateId();
-        int candidateLastTerm = request.getLastLogTerm();
-        int candidateLastIndex = request.getLastLogIndex();
+    public VoteResponseDto handleVoteRequest(VoteRequestDto request) {
+        lockManager.getLogReadLock().lock();
+        lockManager.getStateWriteLock().lock();
+        try {
+            int currentTerm = nodeState.getCurrentTerm();
+            int requestTerm = request.getTerm();
+            int candidateId = request.getCandidateId();
+            int candidateLastTerm = request.getLastLogTerm();
+            int candidateLastIndex = request.getLastLogIndex();
 
-        // Reply false if term < currentTerm (§5.1)
-        if (requestTerm < currentTerm) {
-            return new VoteResponseDto(currentTerm, false);
+            // Reply false if term < currentTerm (§5.1)
+            if (requestTerm < currentTerm) {
+                return new VoteResponseDto(currentTerm, false);
+            }
+
+            // If RPC request or response contains term T > currentTerm: set currentTerm = T, convert to follower (§5.1)
+            if (requestTerm > currentTerm) {
+                stateManager.becomeFollower(requestTerm);
+                nodeState.setCurrentTerm(requestTerm);
+            }
+
+            // If votedFor is null or candidateId, and candidate's log is at least as up-to-date as receiver's log,
+            // grant vote (§5.2, §5.4)
+            Integer votedFor = nodeState.getVotedFor();
+            if (votedFor != null && !votedFor.equals(candidateId)) {
+                return new VoteResponseDto(currentTerm, false);
+            }
+
+            int localLastTerm = log.getLastTerm();
+            int localLastIndex = log.getLastIndex();
+            if (candidateLastTerm < localLastTerm ||
+                    (candidateLastTerm == localLastTerm && candidateLastIndex < localLastIndex)) {
+                return new VoteResponseDto(currentTerm, false);
+            }
+
+            nodeState.setVotedFor(candidateId);
+            stateManager.resetElectionTimer();
+            return new VoteResponseDto(currentTerm, true);
+        } finally {
+            lockManager.getStateWriteLock().unlock();
+            lockManager.getLogReadLock().unlock();
         }
-
-        // If RPC request or response contains term T > currentTerm: set currentTerm = T, convert to follower (§5.1)
-        if (requestTerm > currentTerm) {
-            stateManager.becomeFollower(requestTerm);
-            nodeState.setCurrentTerm(requestTerm);
-        }
-
-        // If votedFor is null or candidateId, and candidate's log is at least as up-to-date as receiver's log,
-        // grant vote (§5.2, §5.4)
-        Integer votedFor = nodeState.getVotedFor();
-        if (votedFor != null && !votedFor.equals(candidateId)) {
-            return new VoteResponseDto(currentTerm, false);
-        }
-
-        int localLastTerm = log.getLastTerm();
-        int localLastIndex = log.getLastIndex();
-        if (candidateLastTerm < localLastTerm ||
-                (candidateLastTerm == localLastTerm && candidateLastIndex < localLastIndex)) {
-            return new VoteResponseDto(currentTerm, false);
-        }
-
-        nodeState.setVotedFor(candidateId);
-        stateManager.resetElectionTimer();
-        return new VoteResponseDto(currentTerm, true);
     }
 
     /**
@@ -75,7 +83,8 @@ public class ElectionManager {
      * Increment currentTerm, vote for self, reset election timer, send RequestVote RPCs to all other servers.
      */
     public void startElection() {
-        synchronized (this) {
+        lockManager.getStateWriteLock().lock();
+        try {
             System.out.println("Node " + nodeState.getNodeId() + " starting election");
             if (nodeState.getCurrentRole() == Role.LEADER) {
                 return;
@@ -87,6 +96,17 @@ public class ElectionManager {
             System.out.println("Node " + nodeState.getNodeId() + " became CANDIDATE, term " + nodeState.getCurrentTerm());
 
             int currentTerm = nodeState.getCurrentTerm();
+            int lastLogIndex;
+            int lastLogTerm;
+
+            lockManager.getLogReadLock().lock();
+            try {
+                lastLogIndex = log.getLastIndex();
+                lastLogTerm = log.getLastTerm();
+            } finally {
+                lockManager.getLogReadLock().unlock();
+            }
+
             List<CompletableFuture<VoteResponseDto>> voteFutures = new ArrayList<>();
             ExecutorService executor = Executors.newCachedThreadPool();
 
@@ -96,8 +116,8 @@ public class ElectionManager {
                         .supplyAsync(() -> requestVote(
                                 currentTerm,
                                 nodeState.getNodeId(),
-                                log.getLastIndex(),
-                                log.getLastTerm(),
+                                lastLogIndex,
+                                lastLogTerm,
                                 peerUrl
                         ), executor)
                         .orTimeout(config.getElectionRpcTimeoutMillis(), TimeUnit.MILLISECONDS)
@@ -115,7 +135,8 @@ public class ElectionManager {
             // If votes received from majority of servers: become leader (§5.2).
             for (CompletableFuture<VoteResponseDto> future : voteFutures) {
                 future.thenAccept(response -> {
-                    synchronized (this) {
+                    lockManager.getStateWriteLock().lock();
+                    try {
                         if (nodeState.getCurrentRole() != Role.CANDIDATE || nodeState.getCurrentTerm() != currentTerm) {
                             return;
                         }
@@ -130,12 +151,15 @@ public class ElectionManager {
                         } else {
                             System.out.println("Node " + nodeState.getNodeId() + " vote not granted or response null");
                         }
+                    } finally {
+                        lockManager.getStateWriteLock().unlock();
                     }
                 });
             }
 
-            System.out.println("Node " + nodeState.getNodeId() + " resetting election timer");
             stateManager.resetElectionTimer();
+        } finally {
+            lockManager.getStateWriteLock().unlock();
         }
     }
 

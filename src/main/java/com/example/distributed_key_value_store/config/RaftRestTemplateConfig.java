@@ -14,7 +14,7 @@ public class RaftRestTemplateConfig {
     @Bean
     public RestTemplate restTemplate() {
         RestTemplate restTemplate = new RestTemplate();
-        int timeout = raftConfig.getHeartbeatIntervalMillis() / 2;
+        int timeout = 300;
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(timeout);
         factory.setReadTimeout(timeout);

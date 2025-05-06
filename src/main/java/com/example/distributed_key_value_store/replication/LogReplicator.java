@@ -9,6 +9,7 @@ import com.example.distributed_key_value_store.node.RaftNodeState;
 import com.example.distributed_key_value_store.node.RaftNodeStateManager;
 import com.example.distributed_key_value_store.node.Role;
 import com.example.distributed_key_value_store.storage.StateMachine;
+import com.example.distributed_key_value_store.util.LockManager;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,6 +41,7 @@ public class LogReplicator {
 
     private final RestTemplate restTemplate;
     private ScheduledExecutorService executor;
+    private final LockManager lockManager;
 
     @PostConstruct
     private void initExecutor() {
@@ -57,7 +59,13 @@ public class LogReplicator {
     // Upon election: send initial empty AppendEntries RPCs (heartbeat) to each server; repeat during idle periods
     // to prevent election timeouts (§5.2)
     public void start() {
-        if (nodeState.getCurrentRole() != Role.LEADER) return;
+        lockManager.getStateReadLock().lock();
+        try {
+            if (nodeState.getCurrentRole() != Role.LEADER) return;
+        } finally {
+            lockManager.getStateReadLock().unlock();
+        }
+
         for (String peer : config.getPeerUrls().values()) {
             if (!pendingReplication.getOrDefault(peer, false)) {
                 pendingReplication.put(peer, true);
@@ -69,10 +77,25 @@ public class LogReplicator {
     // Sends heartbeats/log entries to peer, adjusting sleep time to match heartbeat interval
     private void replicateLoop(String peer) {
         int backoff = config.getHeartbeatIntervalMillis();
-        while (nodeState.getCurrentRole() == Role.LEADER) {
+        while (true) {
+            lockManager.getStateReadLock().lock();
+            try {
+                if (nodeState.getCurrentRole() != Role.LEADER) break;
+            } finally {
+                lockManager.getStateReadLock().unlock();
+            }
+            lockManager.getLogWriteLock().lock();
+            lockManager.getStateWriteLock().lock();
+            lockManager.getStateMachineWriteLock().lock();
             long startTime = System.currentTimeMillis();
-            boolean ok = replicate(peer);
-            if (ok) updateCommitIndex();
+            try {
+                boolean ok = replicate(peer);
+                if (ok) updateCommitIndex();
+            } finally {
+                lockManager.getStateMachineWriteLock().unlock();
+                lockManager.getStateWriteLock().unlock();
+                lockManager.getLogWriteLock().unlock();
+            }
             long duration = System.currentTimeMillis() - startTime;
             long sleepTime = Math.max(0, backoff - duration);
             try {
@@ -122,6 +145,7 @@ public class LogReplicator {
             System.out.println("Node " + nodeState.getNodeId() + " appendEntries to " + peer + " failed: " + e.getMessage());
             return false;
         }
+
     }
 
     // If there exists an N such that N > commitIndex, a majority of matchIndex[i] >= N,

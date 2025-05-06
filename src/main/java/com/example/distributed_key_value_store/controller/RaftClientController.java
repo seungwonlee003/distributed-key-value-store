@@ -2,11 +2,9 @@ package com.example.distributed_key_value_store.controller;
 
 import com.example.distributed_key_value_store.dto.WriteRequestDto;
 import com.example.distributed_key_value_store.log.LogEntry;
-import com.example.distributed_key_value_store.log.RaftLog;
 import com.example.distributed_key_value_store.node.RaftNodeState;
-import com.example.distributed_key_value_store.node.Role;
 import com.example.distributed_key_value_store.replication.ClientRequestHandler;
-import com.example.distributed_key_value_store.service.ReadHandler;
+import com.example.distributed_key_value_store.storage.KVStore;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,36 +14,15 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 @RequestMapping("/raft/client")
 public class RaftClientController {
-    private final ReadHandler readHandler;
     private final RaftNodeState nodeState;
     private final ClientRequestHandler clientRequestHandler;
-    private final RaftLog raftLog;
-
-    @GetMapping("/get/log")
-    public ResponseEntity<String> getLog() {
-        StringBuilder logRecord = new StringBuilder();
-        logRecord.append("Log Entries: \n");
-        int index = 0;
-        for (LogEntry entry : raftLog.getEntriesFrom(0)) {
-            logRecord.append(String.format(
-                    "Index=%d, Term=%d, Operation=%s, Key=%s, Value=%s, ClientId=%s, SequenceNumber=%d\n",
-                    index, entry.getTerm(), entry.getOperation(), entry.getKey(),
-                    entry.getValue() != null ? entry.getValue() : "null",
-                    entry.getClientId(), entry.getSequenceNumber()
-            ));
-            index++;
-        }
-        if (index == 0) {
-            logRecord.append("No log entries found.\n");
-        }
-        return ResponseEntity.ok(logRecord.toString());
-    }
-
+    private final KVStore kvStore;
+    private final String NO_OP_ENTRY = "NO_OP_ENTRY";
 
     @GetMapping("/get")
     public ResponseEntity<String> get(@RequestParam String key) {
-        String val = readHandler.handleRead(key);
-        return ResponseEntity.ok(val);
+        handleRead(new WriteRequestDto(NO_OP_ENTRY, Long.MAX_VALUE, NO_OP_ENTRY, NO_OP_ENTRY));
+        return ResponseEntity.ok(kvStore.get(key));
     }
 
     @PostMapping("/insert")
@@ -63,11 +40,20 @@ public class RaftClientController {
         return handleWrite(request, LogEntry.Operation.DELETE, "Delete");
     }
 
-    private ResponseEntity<String> handleWrite(WriteRequestDto request, LogEntry.Operation op, String label) {
-        if (nodeState.getCurrentRole() != Role.LEADER) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Not the leader");
-        }
+    private void handleRead(WriteRequestDto request){
+        LogEntry entry = new LogEntry(
+                nodeState.getCurrentTerm(),
+                request.getKey(),
+                request.getValue(),
+                LogEntry.Operation.INSERT,
+                request.getClientId(),
+                request.getSequenceNumber()
+        );
+        boolean committed = clientRequestHandler.handle(entry);
+        if(!committed) throw new RuntimeException("Can't process the read");
+    }
 
+    private ResponseEntity<String> handleWrite(WriteRequestDto request, LogEntry.Operation op, String label) {
         LogEntry entry = new LogEntry(
                 nodeState.getCurrentTerm(),
                 request.getKey(),
