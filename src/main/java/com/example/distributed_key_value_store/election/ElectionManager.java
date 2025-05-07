@@ -84,6 +84,7 @@ public class ElectionManager {
      */
     public void startElection() {
         lockManager.getStateWriteLock().lock();
+        lockManager.getLogReadLock().lock();
         try {
             System.out.println("Node " + nodeState.getNodeId() + " starting election");
             if (nodeState.getCurrentRole() == Role.LEADER) {
@@ -93,19 +94,10 @@ public class ElectionManager {
             nodeState.setCurrentRole(Role.CANDIDATE);
             nodeState.incrementTerm();
             nodeState.setVotedFor(nodeState.getNodeId());
-            System.out.println("Node " + nodeState.getNodeId() + " became CANDIDATE, term " + nodeState.getCurrentTerm());
 
             int currentTerm = nodeState.getCurrentTerm();
-            int lastLogIndex;
-            int lastLogTerm;
-
-            lockManager.getLogReadLock().lock();
-            try {
-                lastLogIndex = log.getLastIndex();
-                lastLogTerm = log.getLastTerm();
-            } finally {
-                lockManager.getLogReadLock().unlock();
-            }
+            int lastLogIndex = log.getLastIndex();
+            int lastLogTerm = log.getLastTerm();
 
             List<CompletableFuture<VoteResponseDto>> voteFutures = new ArrayList<>();
             ExecutorService executor = Executors.newCachedThreadPool();
@@ -146,7 +138,6 @@ public class ElectionManager {
                             if (newVoteCount >= majority) {
                                 System.out.println("Node " + nodeState.getNodeId() + " achieved majority, becoming LEADER");
                                 stateManager.becomeLeader();
-                                return;
                             }
                         } else {
                             System.out.println("Node " + nodeState.getNodeId() + " vote not granted or response null");
@@ -156,9 +147,9 @@ public class ElectionManager {
                     }
                 });
             }
-
             stateManager.resetElectionTimer();
         } finally {
+            lockManager.getLogReadLock().unlock();
             lockManager.getStateWriteLock().unlock();
         }
     }
@@ -174,7 +165,6 @@ public class ElectionManager {
             System.out.println("Node " + candidateId + " received vote response from " + peerUrl + ": term=" + body.getTerm() + ", granted=" + body.isVoteGranted());
             // If RPC request or response contains term T > currentTerm: set currentTerm = T, convert to follower (§5.1)
             if (body.getTerm() > nodeState.getCurrentTerm()) {
-                System.out.println("Node " + candidateId + " found higher term " + body.getTerm() + ", becoming FOLLOWER");
                 stateManager.becomeFollower(body.getTerm());
             }
             return body;

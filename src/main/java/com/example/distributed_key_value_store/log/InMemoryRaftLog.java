@@ -4,9 +4,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 @Component
 public class InMemoryRaftLog implements RaftLog{
@@ -19,12 +16,12 @@ public class InMemoryRaftLog implements RaftLog{
     }
 
     @Override
-    public synchronized void append(LogEntry entry) {
+    public void append(LogEntry entry) {
         logEntries.add(entry);
     }
 
     @Override
-    public synchronized void appendAll(List<LogEntry> entries) {
+    public void appendAll(List<LogEntry> entries) {
         if (entries != null && !entries.isEmpty()) {
             logEntries.addAll(entries);
         }
@@ -42,7 +39,7 @@ public class InMemoryRaftLog implements RaftLog{
     }
 
     @Override
-    public synchronized void deleteFrom(int fromIndex) {
+    public void deleteFrom(int fromIndex) {
         if (fromIndex >= 1 && fromIndex < logEntries.size()) {
             logEntries.subList(fromIndex, logEntries.size()).clear();
         }
@@ -64,7 +61,7 @@ public class InMemoryRaftLog implements RaftLog{
     }
 
     @Override
-    public synchronized void setCommitIndex(int newCommitIndex) {
+    public void setCommitIndex(int newCommitIndex) {
         if (newCommitIndex > commitIndex && newCommitIndex <= getLastIndex()) {
             commitIndex = newCommitIndex;
         }
@@ -76,7 +73,7 @@ public class InMemoryRaftLog implements RaftLog{
     }
 
     @Override
-    public synchronized List<LogEntry> getEntriesFrom(int startIndex) {
+    public List<LogEntry> getEntriesFrom(int startIndex) {
         List<LogEntry> entries = new ArrayList<>();
         for (int i = startIndex; i < logEntries.size(); i++) {
             entries.add(logEntries.get(i));

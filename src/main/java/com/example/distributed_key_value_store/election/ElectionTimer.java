@@ -21,7 +21,7 @@ public class ElectionTimer {
 
     // If election timeout elapses without receiving AppendEntries RPC from current leader or granting vote to candidate:
     // convert to candidate (§5.2)
-    public synchronized void reset(){
+    public void reset(){
         cancel();
 
         long minTimeout = config.getElectionTimeoutMillisMin();
@@ -33,7 +33,7 @@ public class ElectionTimer {
         }, timeout, TimeUnit.MILLISECONDS);
     }
 
-    public synchronized void cancel(){
+    public void cancel(){
         if (electionFuture != null && !electionFuture.isDone()) {
             electionFuture.cancel(false);
             electionFuture = null;

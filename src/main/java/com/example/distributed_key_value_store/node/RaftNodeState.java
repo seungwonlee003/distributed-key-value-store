@@ -1,37 +1,19 @@
 package com.example.distributed_key_value_store.node;
 
-import com.example.distributed_key_value_store.config.RaftConfig;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import lombok.Setter;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.stereotype.Component;
-
-@Getter
-@Setter
-@Component
-@RequiredArgsConstructor
-public class RaftNodeState {
-    private final RaftConfig raftConfig;
-    private int nodeId = 0;
-    private int currentTerm = 0;
-    private Integer votedFor = null;
-    private int lastApplied = 0;
-    private Role currentRole = Role.LEADER;
-    private Integer currentLeader = null;
-
-    public void incrementTerm() {
-        this.currentTerm++;
-    }
-
-    public String getCurrentLeaderUrl() {
-        if (currentLeader != null) {
-            return raftConfig.getPeerUrls().get(currentLeader);
-        }
-        return null;
-    }
-
-    public boolean isLeader() {
-        return currentRole == Role.LEADER;
-    }
+public interface RaftNodeState {
+    int getNodeId();
+    void setNodeId(int nodeId);
+    int getCurrentTerm();
+    void setCurrentTerm(int currentTerm);
+    void incrementTerm();
+    Integer getVotedFor();
+    void setVotedFor(Integer votedFor);
+    int getLastApplied();
+    void setLastApplied(int lastApplied);
+    Role getCurrentRole();
+    void setCurrentRole(Role role);
+    Integer getCurrentLeader();
+    void setCurrentLeader(Integer leaderId);
+    String getCurrentLeaderUrl();
+    boolean isLeader();
 }

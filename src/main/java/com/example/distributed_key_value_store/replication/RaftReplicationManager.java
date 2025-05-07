@@ -11,10 +11,10 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class RaftReplicationManager {
-    private final ClientRequestHandler clientRequestHandler;
     @Autowired
     @Lazy
     private LogReplicator logReplicator;
+    private final ClientRequestHandler clientRequestHandler;
     private final AppendEntryHandler appendEntryHandler;
 
     public boolean handleClientRequest(LogEntry entry) {
