@@ -8,7 +8,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 @Component
 public class LockManager {
-
     private final ReadWriteLock logLock = new ReentrantReadWriteLock();
     private final ReadWriteLock stateLock = new ReentrantReadWriteLock();
     private final ReadWriteLock stateMachineLock = new ReentrantReadWriteLock();

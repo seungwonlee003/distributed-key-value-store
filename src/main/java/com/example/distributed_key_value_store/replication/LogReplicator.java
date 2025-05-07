@@ -27,11 +27,11 @@ import java.util.concurrent.ScheduledExecutorService;
 @Component
 @RequiredArgsConstructor
 public class LogReplicator {
-    private final RaftConfig config;
-    private final RaftLog log;
     @Autowired
     @Lazy
     private RaftNodeStateManager nodeStateManager;
+    private final RaftConfig config;
+    private final RaftLog log;
     private final RaftNodeState nodeState;
     private final StateMachine stateMachine;
 
@@ -84,6 +84,7 @@ public class LogReplicator {
             } finally {
                 lockManager.getStateReadLock().unlock();
             }
+
             lockManager.getLogWriteLock().lock();
             lockManager.getStateWriteLock().lock();
             lockManager.getStateMachineWriteLock().lock();
@@ -145,7 +146,6 @@ public class LogReplicator {
             System.out.println("Node " + nodeState.getNodeId() + " appendEntries to " + peer + " failed: " + e.getMessage());
             return false;
         }
-
     }
 
     // If there exists an N such that N > commitIndex, a majority of matchIndex[i] >= N,

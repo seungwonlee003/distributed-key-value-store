@@ -9,8 +9,6 @@ import org.springframework.web.client.RestTemplate;
 @Configuration
 @RequiredArgsConstructor
 public class RaftRestTemplateConfig {
-    private final RaftConfig raftConfig;
-
     @Bean
     public RestTemplate restTemplate() {
         RestTemplate restTemplate = new RestTemplate();

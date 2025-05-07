@@ -14,7 +14,7 @@ public class SneakyController {
     private final RaftLog raftLog;
     private final LockManager lockManager;
 
-    @GetMapping("/get/log")
+    @GetMapping("/inspect/log")
     public ResponseEntity<String> getLog() {
         StringBuilder logRecord = new StringBuilder();
         logRecord.append("Log Entries: \n");

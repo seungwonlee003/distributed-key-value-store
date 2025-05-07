@@ -1,7 +1,6 @@
 package com.example.distributed_key_value_store.node;
 
 import com.example.distributed_key_value_store.election.ElectionTimer;
-import com.example.distributed_key_value_store.replication.LogReplicator;
 import com.example.distributed_key_value_store.replication.RaftReplicationManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,18 +10,17 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class RaftNodeStateManager {
-    private final RaftNodeState state;
     @Autowired
     @Lazy
     private ElectionTimer electionTimer;
-    private final RaftReplicationManager raftReplicationManager;
-    private final LogReplicator logReplicator;
+    private final RaftNodeState state;
+    private final RaftReplicationManager replicationManager;
 
     public void becomeLeader() {
         state.setCurrentRole(Role.LEADER);
         System.out.printf("Node %s became leader for term %d%n", state.getNodeId(), state.getCurrentTerm());
-        raftReplicationManager.initializeIndices();
-        logReplicator.start();
+        replicationManager.initializeIndices();
+        replicationManager.startLogReplication();
     }
 
     public void becomeFollower(int newTerm) {

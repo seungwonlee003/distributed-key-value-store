@@ -26,7 +26,7 @@ public class AppendEntryHandler {
     private final StateMachine stateMachine;
     private final LockManager lockManager;
 
-    public synchronized AppendEntryResponseDto handle(AppendEntryRequestDto dto) {
+    public AppendEntryResponseDto handle(AppendEntryRequestDto dto) {
         lockManager.getLogWriteLock().lock();
         lockManager.getStateWriteLock().lock();
         lockManager.getStateMachineWriteLock().lock();
