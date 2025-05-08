@@ -133,7 +133,6 @@ public class LogReplicator {
                 nodeStateManager.becomeFollower(body.getTerm());
                 return false;
             }
-
             if (body.isSuccess()) {
                 nextIndex.put(peer, ni + entries.size());
                 matchIndex.put(peer, ni + entries.size() - 1);
@@ -152,7 +151,6 @@ public class LogReplicator {
             log.error("Node {} failed to send appendEntries to {}: {}", nodeState.getNodeId(), peer, e.getMessage(), e);
             return false;
         }
-
     }
 
     // If there exists an N such that N > commitIndex, a majority of matchIndex[i] >= N,

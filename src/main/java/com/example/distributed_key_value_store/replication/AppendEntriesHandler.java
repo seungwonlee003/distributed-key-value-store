@@ -20,10 +20,10 @@ import java.util.List;
 @Component
 @RequiredArgsConstructor
 public class AppendEntriesHandler {
-    private final RaftLog raftLog;
     @Autowired
     @Lazy
     private RaftNodeStateManager stateManager;
+    private final RaftLog raftLog;
     private final RaftNodeState nodeState;
     private final StateMachine stateMachine;
     private final LockManager lockManager;

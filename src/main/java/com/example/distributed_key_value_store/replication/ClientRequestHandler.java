@@ -50,7 +50,6 @@ public class ClientRequestHandler {
             if (System.currentTimeMillis() - start > timeoutMillis) {
                 return false;
             }
-
             try {
                 Thread.sleep(200);
             } catch (InterruptedException e) {
