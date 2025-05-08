@@ -24,16 +24,7 @@ public class StateMachineImpl implements StateMachine {
         }
 
         switch (entry.getOperation()) {
-            case INSERT:
-                if (store.containsKey(entry.getKey())) {
-                    throw new IllegalStateException("Key '" + entry.getKey() + "' already exists for INSERT");
-                }
-                store.put(entry.getKey(), entry.getValue());
-                break;
-            case UPDATE:
-                if (!store.containsKey(entry.getKey())) {
-                    throw new IllegalStateException("Key '" + entry.getKey() + "' does not exist for UPDATE");
-                }
+            case INSERT, UPDATE:
                 store.put(entry.getKey(), entry.getValue());
                 break;
             case DELETE:

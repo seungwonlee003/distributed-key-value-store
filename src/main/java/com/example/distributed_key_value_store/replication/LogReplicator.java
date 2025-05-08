@@ -12,10 +12,12 @@ import com.example.distributed_key_value_store.storage.StateMachine;
 import com.example.distributed_key_value_store.util.LockManager;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
@@ -24,6 +26,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class LogReplicator {
@@ -31,7 +34,7 @@ public class LogReplicator {
     @Lazy
     private RaftNodeStateManager nodeStateManager;
     private final RaftConfig config;
-    private final RaftLog log;
+    private final RaftLog raftLog;
     private final RaftNodeState nodeState;
     private final StateMachine stateMachine;
 
@@ -49,7 +52,7 @@ public class LogReplicator {
     }
 
     public void initializeIndices() {
-        int lastIndex = log.getLastIndex();
+        int lastIndex = raftLog.getLastIndex();
         for (String peer : config.getPeerUrls().values()) {
             nextIndex.put(peer, lastIndex + 1);
             matchIndex.put(peer, 0);
@@ -113,39 +116,43 @@ public class LogReplicator {
     private boolean replicate(String peer) {
         int ni = nextIndex.get(peer);
         int prevIdx = ni - 1;
-        int prevTerm = (prevIdx >= 0) ? log.getTermAt(prevIdx) : 0;
-        List<LogEntry> entries = log.getEntriesFrom(ni);
+        int prevTerm = (prevIdx >= 0) ? raftLog.getTermAt(prevIdx) : 0;
+        List<LogEntry> entries = raftLog.getEntriesFrom(ni);
 
         AppendEntryRequestDto dto = new AppendEntryRequestDto(
                 nodeState.getCurrentTerm(), nodeState.getNodeId(),
-                prevIdx, prevTerm, entries, log.getCommitIndex()
+                prevIdx, prevTerm, entries, raftLog.getCommitIndex()
         );
 
         try {
             String url = peer + "/raft/appendEntries";
-            System.out.println("Node " + nodeState.getNodeId() + " sending appendEntries to " + peer);
+            log.info("Node {} sending appendEntries to {}", nodeState.getNodeId(), peer);
             ResponseEntity<AppendEntryResponseDto> res = restTemplate.postForEntity(url, dto, AppendEntryResponseDto.class);
             AppendEntryResponseDto body = res.getBody() != null ? res.getBody() : new AppendEntryResponseDto(-1, false);
             if (body.getTerm() > nodeState.getCurrentTerm()) {
-                System.out.println("Node " + nodeState.getNodeId() + " found higher term " + body.getTerm() + ", becoming FOLLOWER");
                 nodeStateManager.becomeFollower(body.getTerm());
                 return false;
             }
 
             if (body.isSuccess()) {
-                System.out.println("Node " + nodeState.getNodeId() + " appendEntries to " + peer + " succeeded");
                 nextIndex.put(peer, ni + entries.size());
                 matchIndex.put(peer, ni + entries.size() - 1);
                 return true;
             } else {
-                System.out.println("Node " + nodeState.getNodeId() + " appendEntries to " + peer + " failed, retrying");
-                nextIndex.put(peer, Math.max(0, ni - 1));
+                int newNextIndex = Math.max(0, ni - 1);
+                log.warn("Node {}: follower {} is behind, decrementing nextIndex from {} to {} to catch up",
+                        nodeState.getNodeId(), peer, ni, newNextIndex);
+                nextIndex.put(peer, newNextIndex);
                 return false;
             }
+        } catch (ResourceAccessException e) {
+            log.error("Node {} failed to send appendEntries to {}: Connection refused", nodeState.getNodeId(), peer);
+            return false;
         } catch (Exception e) {
-            System.out.println("Node " + nodeState.getNodeId() + " appendEntries to " + peer + " failed: " + e.getMessage());
+            log.error("Node {} failed to send appendEntries to {}: {}", nodeState.getNodeId(), peer, e.getMessage(), e);
             return false;
         }
+
     }
 
     // If there exists an N such that N > commitIndex, a majority of matchIndex[i] >= N,
@@ -153,13 +160,13 @@ public class LogReplicator {
     private void updateCommitIndex() {
         int majority = (config.getPeerUrls().size() + 1) / 2 + 1;
         int term = nodeState.getCurrentTerm();
-        for (int i = log.getLastIndex(); i > log.getCommitIndex(); i--) {
+        for (int i = raftLog.getLastIndex(); i > raftLog.getCommitIndex(); i--) {
             int count = 1;
             for (int idx : matchIndex.values()) {
                 if (idx >= i) count++;
             }
-            if (count >= majority && log.getTermAt(i) == term) {
-                log.setCommitIndex(i);
+            if (count >= majority && raftLog.getTermAt(i) == term) {
+                raftLog.setCommitIndex(i);
                 applyEntries();
                 break;
             }
@@ -168,15 +175,14 @@ public class LogReplicator {
 
     // If commitIndex > lastApplied: increment lastApplied, apply log[lastApplied] to state machine (§5.3)
     private void applyEntries() {
-        int commit = log.getCommitIndex();
+        int commit = raftLog.getCommitIndex();
         int lastApplied = nodeState.getLastApplied();
         for (int i = lastApplied + 1; i <= commit; i++) {
             try {
-                LogEntry entry = log.getEntryAt(i);
+                LogEntry entry = raftLog.getEntryAt(i);
                 stateMachine.apply(entry);
                 nodeState.setLastApplied(i);
             } catch (Exception e) {
-                System.out.println("Failed to apply entry " + i);
                 System.exit(1);
             }
         }

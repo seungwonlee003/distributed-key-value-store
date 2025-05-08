@@ -9,6 +9,7 @@ import com.example.distributed_key_value_store.node.RaftNodeStateManager;
 import com.example.distributed_key_value_store.node.Role;
 import com.example.distributed_key_value_store.util.LockManager;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -21,11 +22,12 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ElectionManager {
     private final RaftConfig config;
-    private final RaftLog log;
+    private final RaftLog raftLog;
     private final RaftNodeState nodeState;
     private final RaftNodeStateManager stateManager;
     private final RestTemplate restTemplate;
@@ -62,8 +64,8 @@ public class ElectionManager {
                 return new VoteResponseDto(currentTerm, false);
             }
 
-            int localLastTerm = log.getLastTerm();
-            int localLastIndex = log.getLastIndex();
+            int localLastTerm = raftLog.getLastTerm();
+            int localLastIndex = raftLog.getLastIndex();
             if (candidateLastTerm < localLastTerm ||
                     (candidateLastTerm == localLastTerm && candidateLastIndex < localLastIndex)) {
                 return new VoteResponseDto(currentTerm, false);
@@ -86,24 +88,23 @@ public class ElectionManager {
         lockManager.getStateWriteLock().lock();
         lockManager.getLogReadLock().lock();
         try {
-            System.out.println("Node " + nodeState.getNodeId() + " starting election");
             if (nodeState.getCurrentRole() == Role.LEADER) {
                 return;
             }
 
+            log.info("Node {} starting election", nodeState.getNodeId());
             nodeState.setCurrentRole(Role.CANDIDATE);
             nodeState.incrementTerm();
             nodeState.setVotedFor(nodeState.getNodeId());
 
             int currentTerm = nodeState.getCurrentTerm();
-            int lastLogIndex = log.getLastIndex();
-            int lastLogTerm = log.getLastTerm();
+            int lastLogIndex = raftLog.getLastIndex();
+            int lastLogTerm = raftLog.getLastTerm();
 
             List<CompletableFuture<VoteResponseDto>> voteFutures = new ArrayList<>();
             ExecutorService executor = Executors.newCachedThreadPool();
 
             for (String peerUrl : config.getPeerUrls().values()) {
-                System.out.println("Node " + nodeState.getNodeId() + " requesting vote from " + peerUrl);
                 CompletableFuture<VoteResponseDto> voteFuture = CompletableFuture
                         .supplyAsync(() -> requestVote(
                                 currentTerm,
@@ -114,7 +115,6 @@ public class ElectionManager {
                         ), executor)
                         .orTimeout(config.getElectionRpcTimeoutMillis(), TimeUnit.MILLISECONDS)
                         .exceptionally(throwable -> {
-                            System.out.println("Node " + nodeState.getNodeId() + " vote request to " + peerUrl + " failed: " + throwable.getMessage());
                             return new VoteResponseDto(currentTerm, false);
                         });
                 voteFutures.add(voteFuture);
@@ -122,7 +122,6 @@ public class ElectionManager {
 
             int majority = (config.getPeerUrls().size() + 1) / 2 + 1;
             AtomicInteger voteCount = new AtomicInteger(1);
-            System.out.println("Node " + nodeState.getNodeId() + " has 1 vote (self), needs " + majority + " for majority");
 
             // If votes received from majority of servers: become leader (§5.2).
             for (CompletableFuture<VoteResponseDto> future : voteFutures) {
@@ -134,13 +133,10 @@ public class ElectionManager {
                         }
                         if (response != null && response.isVoteGranted()) {
                             int newVoteCount = voteCount.incrementAndGet();
-                            System.out.println("Node " + nodeState.getNodeId() + " received vote, total votes: " + newVoteCount);
                             if (newVoteCount >= majority) {
-                                System.out.println("Node " + nodeState.getNodeId() + " achieved majority, becoming LEADER");
+                                log.info("Node {} achieved majority, becoming LEADER", nodeState.getNodeId());
                                 stateManager.becomeLeader();
                             }
-                        } else {
-                            System.out.println("Node " + nodeState.getNodeId() + " vote not granted or response null");
                         }
                     } finally {
                         lockManager.getStateWriteLock().unlock();
@@ -157,19 +153,16 @@ public class ElectionManager {
     private VoteResponseDto requestVote(int term, int candidateId, int lastLogIndex, int lastLogTerm, String peerUrl) {
         try {
             String url = peerUrl + "/raft/requestVote";
-            System.out.println("Node " + candidateId + " sending vote request to " + url + " for term " + term);
             VoteRequestDto dto = new VoteRequestDto(term, candidateId, lastLogIndex, lastLogTerm);
             ResponseEntity<VoteResponseDto> response = restTemplate.postForEntity(url, dto, VoteResponseDto.class);
             VoteResponseDto body = response.getBody() != null ? response.getBody() : new VoteResponseDto(term, false);
 
-            System.out.println("Node " + candidateId + " received vote response from " + peerUrl + ": term=" + body.getTerm() + ", granted=" + body.isVoteGranted());
             // If RPC request or response contains term T > currentTerm: set currentTerm = T, convert to follower (§5.1)
             if (body.getTerm() > nodeState.getCurrentTerm()) {
                 stateManager.becomeFollower(body.getTerm());
             }
             return body;
         } catch (Exception e) {
-            System.out.println("Node " + candidateId + " vote request to " + peerUrl + " failed: " + e.getMessage());
             return new VoteResponseDto(term, false);
         }
     }

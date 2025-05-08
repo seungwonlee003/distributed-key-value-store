@@ -9,16 +9,18 @@ import com.example.distributed_key_value_store.node.RaftNodeStateManager;
 import com.example.distributed_key_value_store.storage.StateMachine;
 import com.example.distributed_key_value_store.util.LockManager;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class AppendEntryHandler {
-    private final RaftLog log;
+    private final RaftLog raftLog;
     @Autowired
     @Lazy
     private RaftNodeStateManager stateManager;
@@ -47,8 +49,12 @@ public class AppendEntryHandler {
 
             // Reply false if log doesn't contain an entry at prevLogIndex whose term matches prevLogTerm (§5.3)
             if (dto.getPrevLogIndex() > 0 &&
-                    (!log.containsEntryAt(dto.getPrevLogIndex()) ||
-                            log.getTermAt(dto.getPrevLogIndex()) != dto.getPrevLogTerm())) {
+                    (!raftLog.containsEntryAt(dto.getPrevLogIndex()) ||
+                            raftLog.getTermAt(dto.getPrevLogIndex()) != dto.getPrevLogTerm())) {
+                log.warn("Node {}: log inconsistency detected at prevLogIndex {} (expected term {}, found term {})",
+                        nodeState.getNodeId(), dto.getPrevLogIndex(), dto.getPrevLogTerm(),
+                        raftLog.containsEntryAt(dto.getPrevLogIndex()) ? raftLog.getTermAt(dto.getPrevLogIndex()) : -1);
+                stateManager.resetElectionTimer();
                 return new AppendEntryResponseDto(term, false);
             }
 
@@ -59,25 +65,32 @@ public class AppendEntryHandler {
             if (!entries.isEmpty()) {
                 for (int i = 0; i < entries.size(); i++) {
                     int logIndex = index + i;
-                    if (log.containsEntryAt(logIndex) && log.getTermAt(logIndex) != entries.get(i).getTerm()) {
-                        log.deleteFrom(logIndex);
-                        log.appendAll(entries.subList(i, entries.size()));
+                    if (raftLog.containsEntryAt(logIndex) && raftLog.getTermAt(logIndex) != entries.get(i).getTerm()) {
+                        log.info("Node {}: conflicting entry at index {}, deleting from here and appending new entries",
+                                nodeState.getNodeId(), logIndex);
+                        raftLog.deleteFrom(logIndex);
+                        raftLog.appendAll(entries.subList(i, entries.size()));
                         break;
                     }
                 }
-                if (!log.containsEntryAt(index)) {
-                    log.appendAll(entries);
+                if (!raftLog.containsEntryAt(index)) {
+                    log.info("Node {}: appending {} new entries starting at index {}",
+                            nodeState.getNodeId(), entries.size(), index);
+                    raftLog.appendAll(entries);
                 }
             }
 
             // If leaderCommit > commitIndex, set commitIndex = min(leaderCommit, index of the last new entry)
-            if (dto.getLeaderCommit() > log.getCommitIndex()) {
+            if (dto.getLeaderCommit() > raftLog.getCommitIndex()) {
                 int lastNew = dto.getPrevLogIndex() + entries.size();
-                log.setCommitIndex(Math.min(dto.getLeaderCommit(), lastNew));
+                raftLog.setCommitIndex(Math.min(dto.getLeaderCommit(), lastNew));
                 applyEntries();
             }
-
             stateManager.resetElectionTimer();
+            log.info("Node {}: successfully received {} from leader {}",
+                    nodeState.getNodeId(),
+                    entries.isEmpty() ? "no-op heartbeat" : "heartbeat with " + entries.size() + " entries",
+                    dto.getLeaderId());
             return new AppendEntryResponseDto(term, true);
         } finally {
             lockManager.getStateMachineWriteLock().unlock();
@@ -88,11 +101,11 @@ public class AppendEntryHandler {
 
     // If commitIndex > lastApplied: increment lastApplied, apply log[lastApplied] to state machine (§5.3)
     private void applyEntries() {
-        int commit = log.getCommitIndex();
+        int commit = raftLog.getCommitIndex();
         int lastApplied = nodeState.getLastApplied();
         for (int i = lastApplied + 1; i <= commit; i++) {
             try {
-                LogEntry entry = log.getEntryAt(i);
+                LogEntry entry = raftLog.getEntryAt(i);
                 stateMachine.apply(entry);
                 nodeState.setLastApplied(i);
             } catch (Exception e) {
