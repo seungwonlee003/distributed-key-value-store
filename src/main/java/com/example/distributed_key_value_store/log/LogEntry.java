@@ -18,4 +18,10 @@ public class LogEntry {
         PUT,
         DELETE
     }
+
+    @Override
+    public String toString() {
+        return String.format("LogEntry{term=%d, key='%s', value='%s', operation=%s, clientId='%s', sequenceNumber=%d}",
+                term, key, value, operation, clientId, sequenceNumber);
+    }
 }

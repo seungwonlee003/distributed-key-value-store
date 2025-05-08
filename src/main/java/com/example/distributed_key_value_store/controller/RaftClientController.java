@@ -22,7 +22,7 @@ public class RaftClientController {
 
     @GetMapping("/get")
     public ResponseEntity<String> get(@RequestParam String key) {
-        String NO_OP_ENTRY = "NO_OP_ENTRY";
+        final String NO_OP_ENTRY = "NO_OP_ENTRY";
         try {
             handleRead(new WriteRequestDto(NO_OP_ENTRY, Long.MAX_VALUE, NO_OP_ENTRY, NO_OP_ENTRY));
         } catch (Exception e) {
@@ -48,12 +48,12 @@ public class RaftClientController {
 
     @PostMapping("/put")
     public ResponseEntity<String> put(@RequestBody WriteRequestDto request) {
-        return handleWrite(request, LogEntry.Operation.PUT, "Put");
+        return handleWrite(request, LogEntry.Operation.PUT);
     }
 
     @PostMapping("/delete")
     public ResponseEntity<String> delete(@RequestBody WriteRequestDto request) {
-        return handleWrite(request, LogEntry.Operation.DELETE, "Delete");
+        return handleWrite(request, LogEntry.Operation.DELETE);
     }
 
     private void handleRead(WriteRequestDto request){
@@ -69,7 +69,7 @@ public class RaftClientController {
         if(!committed) throw new RuntimeException("Can't process the read at this moment");
     }
 
-    private ResponseEntity<String> handleWrite(WriteRequestDto request, LogEntry.Operation op, String label) {
+    private ResponseEntity<String> handleWrite(WriteRequestDto request, LogEntry.Operation op) {
         LogEntry entry = new LogEntry(
                 nodeState.getCurrentTerm(),
                 request.getKey(),
@@ -81,10 +81,10 @@ public class RaftClientController {
 
         boolean committed = replicationManager.handleClientRequest(entry);
         if (committed) {
-            return ResponseEntity.ok(label + " committed");
+            return ResponseEntity.ok("Entry committed");
         } else {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                    .body(label + " failed (not committed or leadership lost)");
+                    .body("Commit failed (not committed or leadership lost)");
         }
     }
 }

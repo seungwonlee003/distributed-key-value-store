@@ -112,7 +112,7 @@ public class LogReplicator {
         pendingReplication.put(peer, false);
     }
 
-    // If last log index >= nextIndex for a follower: send AppendEntries RPC with log entreis starting at nextIndex.
+    // If last log index >= nextIndex for a follower: send AppendEntries RPC with log entries starting at nextIndex.
     private boolean replicate(String peer) {
         int ni = nextIndex.get(peer);
         int prevIdx = ni - 1;
@@ -124,9 +124,16 @@ public class LogReplicator {
                 prevIdx, prevTerm, entries, raftLog.getCommitIndex()
         );
 
+        String peerId = config.getPeerUrls().entrySet().stream()
+                .filter(entry -> entry.getValue().equals(peer))
+                .map(Map.Entry::getKey)
+                .map(String::valueOf)
+                .findFirst()
+                .orElse("unknown");
+
         try {
             String url = peer + "/raft/appendEntries";
-            log.info("Node {} sending appendEntries to {}", nodeState.getNodeId(), peer);
+            log.info("Node {} sending appendEntries to follower {}", nodeState.getNodeId(), peerId);
             ResponseEntity<AppendEntriesResponseDto> res = restTemplate.postForEntity(url, dto, AppendEntriesResponseDto.class);
             AppendEntriesResponseDto body = res.getBody() != null ? res.getBody() : new AppendEntriesResponseDto(-1, false);
             if (body.getTerm() > nodeState.getCurrentTerm()) {
@@ -140,15 +147,15 @@ public class LogReplicator {
             } else {
                 int newNextIndex = Math.max(0, ni - 1);
                 log.warn("Node {}: follower {} is behind, decrementing nextIndex from {} to {} to catch up",
-                        nodeState.getNodeId(), peer, ni, newNextIndex);
+                        nodeState.getNodeId(), peerId, ni, newNextIndex);
                 nextIndex.put(peer, newNextIndex);
                 return false;
             }
         } catch (ResourceAccessException e) {
-            log.error("Node {} failed to send appendEntries to {}: Connection refused", nodeState.getNodeId(), peer);
+            log.error("Node {} failed to send appendEntries to Node {}: Connection refused", nodeState.getNodeId(), peerId);
             return false;
         } catch (Exception e) {
-            log.error("Node {} failed to send appendEntries to {}: {}", nodeState.getNodeId(), peer, e.getMessage(), e);
+            log.error("Node {} failed to send appendEntries to follower {}: {}", nodeState.getNodeId(), peerId, e.getMessage(), e);
             return false;
         }
     }

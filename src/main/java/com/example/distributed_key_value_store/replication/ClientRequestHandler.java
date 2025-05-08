@@ -7,8 +7,10 @@ import com.example.distributed_key_value_store.node.RaftNodeState;
 import com.example.distributed_key_value_store.node.Role;
 import com.example.distributed_key_value_store.util.LockManager;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class ClientRequestHandler {
@@ -20,13 +22,17 @@ public class ClientRequestHandler {
     // If command received from the client: append entry to local log, respond after entry applied
     // to state machine (§5.3)
     public boolean handle(LogEntry clientEntry) {
-        int entryIndex;
+        lockManager.getStateReadLock().lock();
         lockManager.getLogWriteLock().lock();
+        int entryIndex;
         try {
+            if (!raftNodeState.isLeader()) return false;
             raftLog.append(clientEntry);
             entryIndex = raftLog.getLastIndex();
+            log.info("Node {}: Client entry appended at index {}", raftNodeState.getNodeId(), entryIndex);
         } finally {
             lockManager.getLogWriteLock().unlock();
+            lockManager.getStateReadLock().unlock();
         }
 
         long start = System.currentTimeMillis();
@@ -40,6 +46,7 @@ public class ClientRequestHandler {
                     return false;
                 }
                 if (raftNodeState.getLastApplied() >= entryIndex) {
+                    log.info("Node {}: Client entry at index {} successfully applied to state machine", raftNodeState.getNodeId(), entryIndex);
                     return true;
                 }
             } finally {
@@ -51,7 +58,7 @@ public class ClientRequestHandler {
                 return false;
             }
             try {
-                Thread.sleep(200);
+                Thread.sleep(50);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 return false;

@@ -19,7 +19,6 @@ public class RaftNodeStateManager {
     public void becomeLeader() {
         cancelElectionTimer();
         state.setCurrentRole(Role.LEADER);
-        System.out.printf("Node %s became leader for term %d%n", state.getNodeId(), state.getCurrentTerm());
         replicationManager.initializeIndices();
         replicationManager.startLogReplication();
     }

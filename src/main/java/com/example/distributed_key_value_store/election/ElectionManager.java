@@ -135,7 +135,7 @@ public class ElectionManager {
                         if (response != null && response.isVoteGranted()) {
                             int newVoteCount = voteCount.incrementAndGet();
                             if (newVoteCount >= majority) {
-                                log.info("Node {} achieved majority, becoming LEADER", nodeState.getNodeId());
+                                log.info("Node {} achieved majority, becoming LEADER for term {}", nodeState.getNodeId(), nodeState.getCurrentTerm());
                                 stateManager.becomeLeader();
                             }
                         }
