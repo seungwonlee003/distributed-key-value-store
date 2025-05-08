@@ -4,7 +4,7 @@ It offers a simple key-value lookup endpoints and it is designed to be fault-tol
 and linearizable. It is implemented in Java using Spring Boot for the ease of RPC communication, with Lombok and Log4j dependencies.
 
 ## Features
-- Leader electioon (§5.2)
+- Leader election (§5.2)
 - Log replication (§5.3)
 - Election restriction (§5.4.1)
 - Committing entries from previous terms (§5.4.2)
