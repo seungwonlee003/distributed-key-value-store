@@ -1,8 +1,8 @@
 package com.example.distributed_key_value_store.replication;
 
 import com.example.distributed_key_value_store.config.RaftConfig;
-import com.example.distributed_key_value_store.dto.AppendEntryRequestDto;
-import com.example.distributed_key_value_store.dto.AppendEntryResponseDto;
+import com.example.distributed_key_value_store.dto.AppendEntriesRequestDto;
+import com.example.distributed_key_value_store.dto.AppendEntriesResponseDto;
 import com.example.distributed_key_value_store.log.LogEntry;
 import com.example.distributed_key_value_store.log.RaftLog;
 import com.example.distributed_key_value_store.node.RaftNodeState;
@@ -119,7 +119,7 @@ public class LogReplicator {
         int prevTerm = (prevIdx >= 0) ? raftLog.getTermAt(prevIdx) : 0;
         List<LogEntry> entries = raftLog.getEntriesFrom(ni);
 
-        AppendEntryRequestDto dto = new AppendEntryRequestDto(
+        AppendEntriesRequestDto dto = new AppendEntriesRequestDto(
                 nodeState.getCurrentTerm(), nodeState.getNodeId(),
                 prevIdx, prevTerm, entries, raftLog.getCommitIndex()
         );
@@ -127,8 +127,8 @@ public class LogReplicator {
         try {
             String url = peer + "/raft/appendEntries";
             log.info("Node {} sending appendEntries to {}", nodeState.getNodeId(), peer);
-            ResponseEntity<AppendEntryResponseDto> res = restTemplate.postForEntity(url, dto, AppendEntryResponseDto.class);
-            AppendEntryResponseDto body = res.getBody() != null ? res.getBody() : new AppendEntryResponseDto(-1, false);
+            ResponseEntity<AppendEntriesResponseDto> res = restTemplate.postForEntity(url, dto, AppendEntriesResponseDto.class);
+            AppendEntriesResponseDto body = res.getBody() != null ? res.getBody() : new AppendEntriesResponseDto(-1, false);
             if (body.getTerm() > nodeState.getCurrentTerm()) {
                 nodeStateManager.becomeFollower(body.getTerm());
                 return false;

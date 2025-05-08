@@ -1,7 +1,7 @@
 package com.example.distributed_key_value_store.replication;
 
-import com.example.distributed_key_value_store.dto.AppendEntryRequestDto;
-import com.example.distributed_key_value_store.dto.AppendEntryResponseDto;
+import com.example.distributed_key_value_store.dto.AppendEntriesRequestDto;
+import com.example.distributed_key_value_store.dto.AppendEntriesResponseDto;
 import com.example.distributed_key_value_store.log.LogEntry;
 import com.example.distributed_key_value_store.log.RaftLog;
 import com.example.distributed_key_value_store.node.RaftNodeState;
@@ -19,7 +19,7 @@ import java.util.List;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class AppendEntryHandler {
+public class AppendEntriesHandler {
     private final RaftLog raftLog;
     @Autowired
     @Lazy
@@ -28,7 +28,7 @@ public class AppendEntryHandler {
     private final StateMachine stateMachine;
     private final LockManager lockManager;
 
-    public AppendEntryResponseDto handle(AppendEntryRequestDto dto) {
+    public AppendEntriesResponseDto handle(AppendEntriesRequestDto dto) {
         lockManager.getLogWriteLock().lock();
         lockManager.getStateWriteLock().lock();
         lockManager.getStateMachineWriteLock().lock();
@@ -37,7 +37,7 @@ public class AppendEntryHandler {
             int leaderTerm = dto.getTerm();
 
             // Reply false if term < currentTerm (§5.1)
-            if (leaderTerm < term) return new AppendEntryResponseDto(term, false);
+            if (leaderTerm < term) return new AppendEntriesResponseDto(term, false);
 
             // If RPC request or response contains term T > currentTerm: set currentTerm = T, convert to follower (§5.1)
             if (leaderTerm > term) {
@@ -55,7 +55,7 @@ public class AppendEntryHandler {
                         nodeState.getNodeId(), dto.getPrevLogIndex(), dto.getPrevLogTerm(),
                         raftLog.containsEntryAt(dto.getPrevLogIndex()) ? raftLog.getTermAt(dto.getPrevLogIndex()) : -1);
                 stateManager.resetElectionTimer();
-                return new AppendEntryResponseDto(term, false);
+                return new AppendEntriesResponseDto(term, false);
             }
 
             // If an existing entry conflicts with a new one (same index but different terms), delete the existing
@@ -91,7 +91,7 @@ public class AppendEntryHandler {
                     nodeState.getNodeId(),
                     entries.isEmpty() ? "no-op heartbeat" : "heartbeat with " + entries.size() + " entries",
                     dto.getLeaderId());
-            return new AppendEntryResponseDto(term, true);
+            return new AppendEntriesResponseDto(term, true);
         } finally {
             lockManager.getStateMachineWriteLock().unlock();
             lockManager.getStateWriteLock().unlock();

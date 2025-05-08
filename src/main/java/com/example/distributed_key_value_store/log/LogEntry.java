@@ -15,8 +15,7 @@ public class LogEntry {
     private long sequenceNumber;
 
     public enum Operation {
-        INSERT,
-        UPDATE,
+        PUT,
         DELETE
     }
 }

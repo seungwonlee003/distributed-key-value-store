@@ -23,7 +23,7 @@ public class RaftRpcController {
     }
 
     @PostMapping("/appendEntries")
-    public ResponseEntity<AppendEntryResponseDto> appendEntries(@RequestBody AppendEntryRequestDto dto) {
+    public ResponseEntity<AppendEntriesResponseDto> appendEntries(@RequestBody AppendEntriesRequestDto dto) {
         return ResponseEntity.ok(raftReplicationManager.handleAppendEntries(dto));
     }
 }

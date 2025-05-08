@@ -22,7 +22,6 @@ public class RaftClientController {
 
     @GetMapping("/get")
     public ResponseEntity<String> get(@RequestParam String key) {
-        // Ensure linearizable semantics (applies NO_OP_ENTRY to sync with leader)
         String NO_OP_ENTRY = "NO_OP_ENTRY";
         try {
             handleRead(new WriteRequestDto(NO_OP_ENTRY, Long.MAX_VALUE, NO_OP_ENTRY, NO_OP_ENTRY));
@@ -47,14 +46,9 @@ public class RaftClientController {
         }
     }
 
-    @PostMapping("/insert")
-    public ResponseEntity<String> insert(@RequestBody WriteRequestDto request) {
-        return handleWrite(request, LogEntry.Operation.INSERT, "Insert");
-    }
-
-    @PostMapping("/update")
-    public ResponseEntity<String> update(@RequestBody WriteRequestDto request) {
-        return handleWrite(request, LogEntry.Operation.UPDATE, "Update");
+    @PostMapping("/put")
+    public ResponseEntity<String> put(@RequestBody WriteRequestDto request) {
+        return handleWrite(request, LogEntry.Operation.PUT, "Put");
     }
 
     @PostMapping("/delete")
@@ -67,7 +61,7 @@ public class RaftClientController {
                 nodeState.getCurrentTerm(),
                 request.getKey(),
                 request.getValue(),
-                LogEntry.Operation.INSERT,
+                LogEntry.Operation.PUT,
                 request.getClientId(),
                 request.getSequenceNumber()
         );

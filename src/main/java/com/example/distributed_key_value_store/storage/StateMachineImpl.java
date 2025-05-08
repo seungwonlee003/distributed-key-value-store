@@ -24,7 +24,7 @@ public class StateMachineImpl implements StateMachine {
         }
 
         switch (entry.getOperation()) {
-            case INSERT, UPDATE:
+            case PUT:
                 store.put(entry.getKey(), entry.getValue());
                 break;
             case DELETE:

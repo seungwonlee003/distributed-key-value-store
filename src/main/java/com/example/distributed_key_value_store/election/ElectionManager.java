@@ -32,6 +32,7 @@ public class ElectionManager {
     private final RaftNodeStateManager stateManager;
     private final RestTemplate restTemplate;
     private final LockManager lockManager;
+
     /**
      * Handles a vote request from a candidate node per Raft algorithm.
      * Grants vote if conditions in Raft §5.1, §5.2, and §5.4 are met.
@@ -88,11 +89,11 @@ public class ElectionManager {
         lockManager.getStateWriteLock().lock();
         lockManager.getLogReadLock().lock();
         try {
+            log.info("Node {} starting election", nodeState.getNodeId());
             if (nodeState.getCurrentRole() == Role.LEADER) {
                 return;
             }
 
-            log.info("Node {} starting election", nodeState.getNodeId());
             nodeState.setCurrentRole(Role.CANDIDATE);
             nodeState.incrementTerm();
             nodeState.setVotedFor(nodeState.getNodeId());

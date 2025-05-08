@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class ConfirmLeadershipRequestDto {
-    private int nodeId;
+public class AppendEntriesResponseDto {
     private int term;
+    private boolean success;
 }

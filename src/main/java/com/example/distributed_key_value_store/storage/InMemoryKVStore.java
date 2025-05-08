@@ -30,11 +30,6 @@ public class InMemoryKVStore implements KVStore {
     }
 
     @Override
-    public boolean containsKey(String key) {
-        return store.containsKey(key);
-    }
-
-    @Override
     public Long getLastSequenceNumber(String clientId) {
         return clientStore.get(clientId);
     }

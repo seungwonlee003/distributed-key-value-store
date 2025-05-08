@@ -10,7 +10,7 @@ import java.util.List;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class AppendEntryRequestDto {
+public class AppendEntriesRequestDto {
     private int term;
     private int leaderId;
     private int prevLogIndex;
