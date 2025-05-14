@@ -1,11 +1,15 @@
 ## Introduction
-Demo video.
 
-This blog post walks through the code.
+[Demo Video](https://www.youtube.com/watch?v=gdX7VxVnL6U)
 
-This is a distributed key-value store implemented using the Raft consensus algorithm and custom LSM storage engine. 
-It offers a simple key-value lookup endpoints and it is designed to be fault-tolerant (as long as majority of nodes are alive)
-and linearizable. It is implemented in Java using Spring Boot with Lombok and SLF4J dependencies.
+[Blog Post](https://dev.to/sashaonion/javaraft-raft-based-distributed-key-value-store-5h0a)
+
+This is a distributed key-value store prototype powered by the **Raft consensus algorithm**.  
+
+The project is implemented in Java, using Spring Boot, with Lombok and SLF4J as dependencies.
+
+An embedded database such as LevelDB can be plugged in by implementing the provided state machine and log interfaces — enabling full durability and persistent storage.
+
 
 ## Features
 - Leader election (§5.2)
