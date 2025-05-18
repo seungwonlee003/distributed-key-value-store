@@ -10,7 +10,8 @@ This project includes:
 
 * The core Raft algorithm
 * A set of pluggable interfaces for state machines and persistence
-* A Spring Boot-based RPC layer for multi-node communication
+* A Spring Boot-based RPC layer for inter-node communication
+* A simple in-memory key-value store with HTTP endpoints for PUT, GET, and DELETE operations (as a reference implementation)
 
 Developers can extend this framework by implementing custom state machines and storage backends to build their own distributed services.
 
