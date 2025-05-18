@@ -4,14 +4,20 @@
 
 [Blog Post](https://dev.to/sashaonion/javaraft-raft-based-distributed-key-value-store-5h0a)
 
-This is a distributed key-value store prototype powered by the **Raft consensus algorithm**.  
+A Java-based implementation of the Raft consensus algorithm, designed to support consistent (CP) distributed systems like distributed key-value stores.
 
-The project is implemented in Java, using Spring Boot, with Lombok and SLF4J as dependencies.
+This project includes:
 
-An embedded database such as LevelDB can be plugged in by implementing the provided state machine and log interfaces — enabling full durability and persistent storage.
+* The core Raft algorithm
+* A set of pluggable interfaces for state machines and persistence
+* A Spring Boot-based RPC layer for multi-node communication
 
+Developers can extend this framework by implementing custom state machines and storage backends to build their own distributed services.
+
+Built with Java, Spring Boot, Lombok, and SLF4J.
 
 ## Features
+Features reference the section number of the [Raft](https://raft.github.io/raft.pdf) paper:
 - Leader election (§5.2)
 - Log replication (§5.3)
 - Election restriction (§5.4.1)
